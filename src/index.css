@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: #f8fafc;
+    color: #1e293b;
+  }
+}
+
+.code-font {
+  font-family: 'Fira Code', monospace;
+}
+
+.slide-paper {
+  background: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+}
+
+/* Crisp halo around schematic text so wires never cut through labels */
+.wire-label {
+  paint-order: stroke fill;
+  stroke: #ffffff;
+  stroke-width: 5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

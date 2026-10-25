@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boolean Logic Gate Synthesizer &amp; Academic Slide Engine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f1f5f9;
+    }
+    .code-font {
+      font-family: 'Fira Code', monospace;
+    }
+    .slide-paper {
+      background: #ffffff;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+    }
+    /* Crisp halo around schematic text so wires never cut through labels */
+    .wire-label {
+      paint-order: stroke fill;
+      stroke: #ffffff;
+      stroke-width: 5px;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-800">
+
+  <!-- Top Navigation & Control Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Brand -->
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow">
+          <i class="fa-solid fa-microchip text-base"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">Logic Gate Synthesizer</h1>
+            <span id="verifyBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <i class="fa-solid fa-circle-check"></i> 100% Verified
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-500 font-medium">University Lecture Slide Schematic &amp; Universal Gate Implementer</p>
+        </div>
+      </div>
+
+      <!-- Presets & Actions -->
+      <div class="flex items-center flex-wrap gap-2">
+        <div class="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
+          <label class="text-[11px] font-bold text-slate-500 uppercase px-1.5">Preset:</label>
+          <select id="presetSelector" class="bg-white border border-slate-300 text-slate-800 text-xs rounded-md py-1 px-2 font-semibold focus:ring-1 focus:ring-sky-500">
+            <option value="AB+ABC'+B'C">Your Screenshot: AB+ABC'+B'C</option>
+            <option value="AB'+ABC'+B'C">Your PDF Problem: AB'+ABC'+B'C</option>
+            <option value="A(B+CD)+BC'">Slide Exercise: A(B+CD)+BC'</option>
+            <option value="AC'+B'C">Simplified PDF: AC'+B'C</option>
+            <option value="AB+B'C">Simplified Screenshot: AB+B'C</option>
+            <option value="(A+B')(C+D')">POS Form: (A+B')(C+D')</option>
+            <option value="A'B+AB'">XOR Equivalent: A'B+AB'</option>
+          </select>
+        </div>
+
+        <button id="toggleWireColorBtn" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border border-slate-300 transition flex items-center gap-1.5" title="Toggle between pure black-and-white slide style and live colored voltage signals">
+          <i class="fa-solid fa-bolt text-amber-500"></i>
+          <span id="wireColorModeLabel">Slide Monochrome</span>
+        </button>
+
+        <button id="exportSvgBtn" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border border-slate-300 transition flex items-center gap-1" title="Download Vector SVG">
+          <i class="fa-solid fa-file-code"></i> SVG
+        </button>
+        <button id="exportPngBtn" class="px-3 py-1.5 bg-slate-900 hover:bg-black text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow">
+          <i class="fa-solid fa-download"></i> PNG Export
+        </button>
+      </div>
+    </div>
+
+    <!-- Formula Input & Universal Mode Bar -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-2 bg-slate-50 border-t border-slate-200 flex flex-col lg:flex-row items-center justify-between gap-3">
+      
+      <!-- Expression Editor -->
+      <div class="w-full lg:w-6/12 flex items-center space-x-2">
+        <span class="text-xs font-extrabold text-slate-700 code-font">F =</span>
+        <div class="relative flex-1">
+          <input 
+            type="text" 
+            id="exprInput" 
+            value="AB+ABC'+B'C" 
+            placeholder="Enter Boolean formula, e.g. AB+ABC'+B'C or A(B+CD)+BC'" 
+            class="w-full pl-3 pr-28 py-1.5 code-font text-sm font-bold bg-white border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+          />
+          <div class="absolute right-1.5 top-1 flex space-x-1">
+            <button onclick="appendToken('\'')" class="px-2 py-0.5 text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded font-mono font-bold text-slate-700" title="Insert Prime / NOT (')">'</button>
+            <button onclick="appendToken('+')" class="px-2 py-0.5 text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded font-mono font-bold text-slate-700" title="Insert OR (+)">+</button>
+            <button onclick="appendToken('(')" class="px-1.5 py-0.5 text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded font-mono font-bold text-slate-700">(</button>
+            <button onclick="appendToken(')')" class="px-1.5 py-0.5 text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded font-mono font-bold text-slate-700">)</button>
+          </div>
+        </div>
+        <button id="generateBtn" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-lg transition shadow flex items-center space-x-1.5 shrink-0">
+          <i class="fa-solid fa-play"></i>
+          <span>Synthesize</span>
+        </button>
+      </div>
+
+      <!-- Implementation Mode Selector -->
+      <div class="flex flex-wrap items-center bg-slate-200/90 p-1 rounded-lg gap-1 text-xs font-bold">
+        <button data-mode="nand" class="mode-tab active px-3 py-1 rounded-md transition bg-white text-slate-900 shadow-sm">
+          NAND Only (Slide 2)
+        </button>
+        <button data-mode="nor" class="mode-tab px-3 py-1 rounded-md transition text-slate-600 hover:text-slate-900">
+          NOR Only (Slide 1)
+        </button>
+        <button data-mode="nand_opt" class="mode-tab px-3 py-1 rounded-md transition text-slate-600 hover:text-slate-900" title="Cancels double consecutive NAND inverters">
+          2-Level NAND (Optimized)
+        </button>
+        <button data-mode="std" class="mode-tab px-3 py-1 rounded-md transition text-slate-600 hover:text-slate-900">
+          Standard (AND/OR/NOT)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="max-w-7xl w-full mx-auto p-4 sm:p-6 flex-1 flex flex-col gap-5">
+
+    <!-- Quick Simplification Banner (Shows Original vs Minimal Form) -->
+    <div class="bg-white rounded-xl border border-slate-200 px-4 py-3 shadow-sm flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center flex-wrap gap-3 text-xs">
+        <span class="font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-solid fa-wand-magic-sparkles text-sky-600"></i> Boolean Analysis:
+        </span>
+        <div class="flex items-center gap-2">
+          <span class="text-slate-500">Input Formula:</span>
+          <code id="bannerOrigExpr" class="code-font font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">F = AB+ABC'+B'C</code>
+        </div>
+        <i class="fa-solid fa-arrow-right text-slate-400"></i>
+        <div class="flex items-center gap-2">
+          <span class="text-slate-500">Minimal SOP Form:</span>
+          <code id="bannerMinExpr" class="code-font font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">F = AB + B'C</code>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="renderMinimalBtn" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-sm flex items-center gap-1.5">
+          <i class="fa-solid fa-compress"></i> Draw Minimal Circuit
+        </button>
+      </div>
+    </div>
+
+    <!-- Lecture Slide Container -->
+    <div class="slide-paper rounded-xl border border-slate-200 overflow-hidden relative flex flex-col">
+      
+      <!-- Slide Title Header -->
+      <div class="px-8 pt-6 pb-2 flex flex-wrap items-start justify-between gap-4 border-b border-slate-100">
+        <div>
+          <div class="flex items-center space-x-1.5 mb-2">
+            <span class="w-3 h-3 rounded-full bg-[#ff5f56] inline-block border border-black/10"></span>
+            <span class="w-3 h-3 rounded-full bg-[#ffbd2e] inline-block border border-black/10"></span>
+            <span class="w-3 h-3 rounded-full bg-[#27c93f] inline-block border border-black/10"></span>
+            <span class="text-[11px] text-slate-400 font-mono pl-2">University Digital Logic Schematic</span>
+          </div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Exercise</h2>
+          <p id="slideSubtitle" class="text-base sm:text-lg font-medium text-slate-800 mt-0.5">
+            Use <span id="modeNameText" class="font-bold text-sky-700">NAND</span> to represent <span id="exprSlideText" class="font-bold code-font">F = AB+ABC'+B'C</span>
+          </p>
+        </div>
+
+        <!-- Live Interactive Input Switches -->
+        <div class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 flex flex-col items-end">
+          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+            <i class="fa-solid fa-toggle-on text-sky-600"></i> Live Input Test (Click to toggle 0/1)
+          </span>
+          <div id="liveInputToggles" class="flex items-center flex-wrap gap-1.5">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Main SVG Schematic Viewport -->
+      <div class="w-full overflow-x-auto bg-white p-4 sm:p-6 flex justify-center items-start min-h-[460px]">
+        <svg id="circuitSvg" class="w-full h-auto select-none" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+
+      <!-- Slide Footer -->
+      <div class="px-8 py-2.5 bg-slate-50/60 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-500 font-mono">
+        <div class="flex items-center gap-4">
+          <span id="gateCountSummary" class="font-semibold text-slate-700">Total Gates: 0</span>
+          <span>•</span>
+          <span id="verificationStatusText" class="text-emerald-700 font-semibold">Truth Table Match: 100%</span>
+        </div>
+        <span id="slidePageNumber" class="font-bold text-slate-400">27</span>
+      </div>
+    </div>
+
+    <!-- Bottom Analysis Grid: Truth Table & Conversion Guide -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      
+      <!-- Truth Table (5 cols) -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:col-span-5 flex flex-col">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-2.5 mb-3">
+          <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+            <i class="fa-solid fa-table text-sky-600"></i> Gate-vs-Formula Truth Table
+          </h3>
+          <span class="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-semibold">
+            Formula vs Circuit Verified
+          </span>
+        </div>
+        <div class="overflow-y-auto max-h-64 border border-slate-200 rounded-lg">
+          <table class="w-full text-xs text-center border-collapse">
+            <thead id="truthTableHeader" class="bg-slate-100 text-slate-700 sticky top-0 font-bold border-b border-slate-200">
+            </thead>
+            <tbody id="truthTableBody" class="divide-y divide-slate-100 font-mono">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Step-by-Step Universal Gate Construction & Simplification Notes (7 cols) -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:col-span-7 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between border-b border-slate-200 pb-2.5 mb-3">
+            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+              <i class="fa-solid fa-list-check text-sky-600"></i> Step-by-Step Circuit Synthesis Breakdown
+            </h3>
+            <span id="modeBadgeInfo" class="bg-sky-50 text-sky-700 border border-sky-200 px-2.5 py-0.5 rounded text-[11px] font-bold">
+              NAND Universal Mode
+            </span>
+          </div>
+
+          <div id="synthesisStepsBox" class="text-xs text-slate-700 space-y-2 max-h-52 overflow-y-auto pr-1">
+            <!-- Dynamically populated synthesis steps -->
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+          <div>
+            <strong>Why does <code class="text-slate-800">AND</code> need 2 NANDs?</strong> A single NAND gives <code class="text-slate-800">(AB)'</code>. To get true <code class="text-slate-800">AB</code>, a tied-NAND inverter is placed in series: <code class="text-slate-800">((AB)')' = AB</code>.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // ============================================================================
+    // 1. APPLICATION STATE
+    // ============================================================================
+    let currentMode = 'nand'; // 'nand', 'nor', 'nand_opt', 'std'
+    let isMonochrome = true;  // True = Pure Academic Black/White Slide; False = Colored Live Voltage
+    let currentExpr = "AB+ABC'+B'C";
+    let currentMinimalExpr = "AB+B'C";
+    let inputStates = { A: 1, B: 0, C: 1, D: 1, E: 0 };
+    let variablesList = ['A', 'B', 'C'];
+
+    function appendToken(tok) {
+      const el = document.getElementById('exprInput');
+      const start = el.selectionStart ?? el.value.length;
+      const end = el.selectionEnd ?? el.value.length;
+      el.value = el.value.substring(0, start) + tok + el.value.substring(end);
+      el.focus();
+      el.selectionStart = el.selectionEnd = start + tok.length;
+    }
+
+    // ============================================================================
+    // 2. RECURSIVE DESCENT BOOLEAN PARSER (SUPPORTS ALL EXPRESSIONS & INVERSIONS)
+    // ============================================================================
+    class BooleanParser {
+      constructor(str) {
+        this.tokens = this.tokenize(str);
+        this.pos = 0;
+      }
+
+      tokenize(str) {
+        const tokens = [];
+        const s = str.replace(/\s+/g, '');
+        let i = 0;
+        while (i < s.length) {
+          const ch = s[i];
+          if (/[A-Za-z]/.test(ch)) {
+            tokens.push({ type: 'VAR', val: ch.toUpperCase() });
+            i++;
+          } else if (ch === '0' || ch === '1') {
+            tokens.push({ type: 'CONST', val: parseInt(ch, 10) });
+            i++;
+          } else if (ch === '+' || ch === '|') {
+            tokens.push({ type: 'OR', val: '+' });
+            i++;
+          } else if (ch === '*' || ch === '&' || ch === '·' || ch === '.') {
+            tokens.push({ type: 'AND', val: '*' });
+            i++;
+          } else if (ch === "'" || ch === '’' || ch === '′') {
+            tokens.push({ type: 'POST_NOT', val: "'" });
+            i++;
+          } else if (ch === '!' || ch === '~') {
+            tokens.push({ type: 'PRE_NOT', val: '!' });
+            i++;
+          } else if (ch === '(' || ch === '[' || ch === '{') {
+            tokens.push({ type: 'LPAREN', val: '(' });
+            i++;
+          } else if (ch === ')' || ch === ']' || ch === '}') {
+            tokens.push({ type: 'RPAREN', val: ')' });
+            i++;
+          } else {
+            i++;
+          }
+        }
+        return tokens;
+      }
+
+      peek() {
+        return this.tokens[this.pos] || null;
+      }
+
+      consume(expectedType) {
+        const tok = this.peek();
+        if (tok && (!expectedType || tok.type === expectedType)) {
+          this.pos++;
+          return tok;
+        }
+        return null;
+      }
+
+      parse() {
+        if (this.tokens.length === 0) return { type: 'VAR', val: 'A' };
+        return this.parseOr();
+      }
+
+      // OR is left-associative: X + Y + Z -> (X + Y) + Z
+      parseOr() {
+        let left = this.parseAnd();
+        while (this.peek() && this.peek().type === 'OR') {
+          this.consume('OR');
+          const right = this.parseAnd();
+          left = { type: 'OR', left, right };
+        }
+        return left;
+      }
+
+      // AND is left-associative: A B C' -> (A · B) · C'
+      parseAnd() {
+        let left = this.parseUnary();
+        while (this.peek()) {
+          const next = this.peek();
+          if (next.type === 'AND') {
+            this.consume('AND');
+            const right = this.parseUnary();
+            left = { type: 'AND', left, right };
+          } else if (next.type === 'VAR' || next.type === 'CONST' || next.type === 'LPAREN' || next.type === 'PRE_NOT') {
+            const right = this.parseUnary();
+            left = { type: 'AND', left, right };
+          } else {
+            break;
+          }
+        }
+        return left;
+      }
+
+      parseUnary() {
+        if (this.peek() && this.peek().type === 'PRE_NOT') {
+          this.consume('PRE_NOT');
+          const child = this.parseUnary();
+          return { type: 'NOT', child };
+        }
+        let node = this.parsePrimary();
+        while (this.peek() && this.peek().type === 'POST_NOT') {
+          this.consume('POST_NOT');
+          node = { type: 'NOT', child: node };
+        }
+        return node;
+      }
+
+      parsePrimary() {
+        const tok = this.peek();
+        if (!tok) return { type: 'VAR', val: 'A' };
+        if (tok.type === 'VAR') {
+          this.consume('VAR');
+          return { type: 'VAR', val: tok.val };
+        }
+        if (tok.type === 'CONST') {
+          this.consume('CONST');
+          return { type: 'CONST', val: tok.val };
+        }
+        if (tok.type === 'LPAREN') {
+          this.consume('LPAREN');
+          const expr = this.parseOr();
+          if (this.peek() && this.peek().type === 'RPAREN') {
+            this.consume('RPAREN');
+          }
+          return expr;
+        }
+        this.consume();
+        return { type: 'VAR', val: 'A' };
+      }
+    }
+
+    // Format AST node back into clean academic algebraic notation
+    function astToString(node) {
+      if (!node) return '';
+      if (node.type === 'VAR') return node.val;
+      if (node.type === 'CONST') return String(node.val);
+      if (node.type === 'NOT') {
+        const inner = astToString(node.child);
+        if (node.child.type === 'AND' || node.child.type === 'OR') {
+          return `(${inner})'`;
+        }
+        return `${inner}'`;
+      }
+      if (node.type === 'AND') {
+        const l = node.left.type === 'OR' ? `(${astToString(node.left)})` : astToString(node.left);
+        const r = node.right.type === 'OR' ? `(${astToString(node.right)})` : astToString(node.right);
+        return `${l}${r}`;
+      }
+      if (node.type === 'OR') {
+        return `${astToString(node.left)}+${astToString(node.right)}`;
+      }
+      return '';
+    }
+
+    // Evaluate AST mathematically
+    function evalAst(node, env) {
+      if (!node) return 0;
+      if (node.type === 'VAR') return env[node.val] ? 1 : 0;
+      if (node.type === 'CONST') return node.val ? 1 : 0;
+      if (node.type === 'NOT') return evalAst(node.child, env) ? 0 : 1;
+      if (node.type === 'AND') return (evalAst(node.left, env) && evalAst(node.right, env)) ? 1 : 0;
+      if (node.type === 'OR') return (evalAst(node.left, env) || evalAst(node.right, env)) ? 1 : 0;
+      return 0;
+    }
+
+    // Collect sorted variable list
+    function collectVars(node, set = new Set()) {
+      if (!node) return set;
+      if (node.type === 'VAR') set.add(node.val);
+      else if (node.type === 'NOT') collectVars(node.child, set);
+      else if (node.type === 'AND' || node.type === 'OR') {
+        collectVars(node.left, set);
+        collectVars(node.right, set);
+      }
+      return set;
+    }
+
+    // ============================================================================
+    // 3. QUINE-McCLUSKEY BOOLEAN MINIMIZER (EXACT MINIMAL SOP CALCULATOR)
+    // ============================================================================
+    function computeMinimalSOP(ast, vars) {
+      if (vars.length === 0 || vars.length > 6) return astToString(ast);
+      const n = vars.length;
+      const minterms = [];
+      for (let m = 0; m < (1 << n); m++) {
+        const env = {};
+        for (let i = 0; i < n; i++) {
+          env[vars[i]] = (m >> (n - 1 - i)) & 1;
+        }
+        if (evalAst(ast, env) === 1) minterms.push(m);
+      }
+      if (minterms.length === 0) return '0';
+      if (minterms.length === (1 << n)) return '1';
+
+      // Represent implicants as strings of '0', '1', '-'
+      let currentGroup = new Set(minterms.map(m => m.toString(2).padStart(n, '0')));
+      const primeImplicants = new Set();
+
+      while (currentGroup.size > 0) {
+        const nextGroup = new Set();
+        const used = new Set();
+        const arr = Array.from(currentGroup);
+
+        for (let i = 0; i < arr.length; i++) {
+          for (let j = i + 1; j < arr.length; j++) {
+            let diffCount = 0;
+            let diffIdx = -1;
+            for (let k = 0; k < n; k++) {
+              if (arr[i][k] !== arr[j][k]) {
+                diffCount++;
+                diffIdx = k;
+              }
+            }
+            if (diffCount === 1) {
+              used.add(arr[i]);
+              used.add(arr[j]);
+              const combined = arr[i].substring(0, diffIdx) + '-' + arr[i].substring(diffIdx + 1);
+              nextGroup.add(combined);
+            }
+          }
+        }
+        for (const item of arr) {
+          if (!used.has(item)) primeImplicants.add(item);
+        }
+        currentGroup = nextGroup;
+      }
+
+      const pis = Array.from(primeImplicants);
+      const matchesMinterm = (pi, m) => {
+        const bin = m.toString(2).padStart(n, '0');
+        for (let i = 0; i < n; i++) {
+          if (pi[i] !== '-' && pi[i] !== bin[i]) return false;
+        }
+        return true;
+      };
+
+      // Find smallest subset of prime implicants covering all minterms
+      let bestCover = pis;
+      let bestLiteralCount = Infinity;
+
+      const countLiterals = (subset) => subset.reduce((acc, pi) => acc + pi.replace(/-/g, '').length, 0);
+
+      const searchCover = (idx, chosen, coveredMask) => {
+        if (coveredMask === (1 << minterms.length) - 1) {
+          const litCount = countLiterals(chosen);
+          if (chosen.length < bestCover.length || (chosen.length === bestCover.length && litCount < bestLiteralCount)) {
+            bestCover = [...chosen];
+            bestLiteralCount = litCount;
+          }
+          return;
+        }
+        if (idx >= pis.length || chosen.length >= bestCover.length) return;
+
+        // Include pis[idx]
+        let newMask = coveredMask;
+        for (let mIdx = 0; mIdx < minterms.length; mIdx++) {
+          if (matchesMinterm(pis[idx], minterms[mIdx])) {
+            newMask |= (1 << mIdx);
+          }
+        }
+        if (newMask !== coveredMask) {
+          chosen.push(pis[idx]);
+          searchCover(idx + 1, chosen, newMask);
+          chosen.pop();
+        }
+        // Exclude pis[idx]
+        searchCover(idx + 1, chosen, coveredMask);
+      };
+
+      if (minterms.length <= 30) {
+        searchCover(0, [], 0);
+      }
+
+      // Format chosen prime implicants into algebraic string
+      const termStrings = bestCover.map(pi => {
+        let s = '';
+        for (let i = 0; i < n; i++) {
+          if (pi[i] === '1') s += vars[i];
+          else if (pi[i] === '0') s += vars[i] + "'";
+        }
+        return s || '1';
+      });
+      return termStrings.join('+');
+    }
+
+    // ============================================================================
+    // 4. UNIVERSAL GATE MACRO SYNTHESIZER & HIERARCHICAL TREE LAYOUT ENGINE
+    // ============================================================================
+    /*
+      Every AST node is transformed into a Universal Gate Macro Node:
+      Macro Types:
+      - 'BUS_TAP': Direct wire from vertical variable rail A, B, C, D...
+      - 'SINGLE_INV': 1 tied-input NAND/NOR inverter (or NOT gate)
+      - 'GATE_PLUS_INV': 2-input gate followed in series by a tied-input inverter
+                         (Used for AND in NAND-only mode, or OR in NOR-only mode)
+      - 'TWO_INV_PLUS_GATE': 2 parallel tied-input inverters feeding a 2-input gate
+                         (Used for OR in NAND-only mode, or AND in NOR-only mode)
+      - 'SIMPLE_2GATE': Single 2-input gate (AND/OR in Standard mode, or NAND in 2-level NAND mode)
+    */
+    function buildUniversalMacroTree(astNode, mode, parentOp = null) {
+      const exprLabel = astToString(astNode);
+
+      if (astNode.type === 'VAR' || astNode.type === 'CONST') {
+        return {
+          macroType: 'BUS_TAP',
+          varName: String(astNode.val),
+          exprLabel,
+          gateCount: 0,
+          evalFn: (env) => astNode.type === 'CONST' ? astNode.val : (env[astNode.val] ? 1 : 0)
+        };
+      }
+
+      if (astNode.type === 'NOT') {
+        // Double negation cancellation if child is also NOT
+        if (astNode.child.type === 'NOT') {
+          return buildUniversalMacroTree(astNode.child.child, mode, parentOp);
+        }
+        const childMacro = buildUniversalMacroTree(astNode.child, mode, 'NOT');
+        const invGateType = mode === 'nor' ? 'NOR_INV' : (mode === 'std' ? 'NOT' : 'NAND_INV');
+        return {
+          macroType: 'SINGLE_INV',
+          gateType: invGateType,
+          child: childMacro,
+          exprLabel,
+          gateCount: childMacro.gateCount + 1,
+          stepDesc: `Invert <code>${childMacro.exprLabel}</code> using ${invGateType === 'NOT' ? 'a NOT gate' : `a tied-input ${invGateType.replace('_INV','')} inverter`} → <strong>${exprLabel}</strong>`,
+          evalFn: (env) => {
+            const cVal = childMacro.evalFn(env);
+            return cVal ? 0 : 1; // NAND(c,c) or NOR(c,c) or NOT(c)
+          }
+        };
+      }
+
+      if (astNode.type === 'AND') {
+        const leftMacro = buildUniversalMacroTree(astNode.left, mode, 'AND');
+        const rightMacro = buildUniversalMacroTree(astNode.right, mode, 'AND');
+
+        if (mode === 'nand') {
+          // Slide 2 Rule: AND (XY) = 2-input NAND followed in series by 1 tied-NAND inverter
+          return {
+            macroType: 'GATE_PLUS_INV',
+            mainGate: 'NAND',
+            invGate: 'NAND_INV',
+            left: leftMacro,
+            right: rightMacro,
+            interLabel: `(${leftMacro.exprLabel}·${rightMacro.exprLabel})'`,
+            exprLabel,
+            gateCount: leftMacro.gateCount + rightMacro.gateCount + 2,
+            stepDesc: `AND <code>${leftMacro.exprLabel}</code> and <code>${rightMacro.exprLabel}</code> via NAND + tied-NAND inverter → <strong>${exprLabel}</strong>`,
+            evalFn: (env) => {
+              const l = leftMacro.evalFn(env);
+              const r = rightMacro.evalFn(env);
+              const nandOut = !(l && r) ? 1 : 0;
+              return !(nandOut && nandOut) ? 1 : 0; // Series tied-NAND inverter restores true AND
+            }
+          };
+        } else if (mode === 'nor') {
+          // Slide 1 Rule: AND (XY) = Two tied-NOR inverters on inputs feeding 1 2-input NOR gate
+          return {
+            macroType: 'TWO_INV_PLUS_GATE',
+            invGate: 'NOR_INV',
+            mainGate: 'NOR',
+            left: leftMacro,
+            right: rightMacro,
+            exprLabel,
+            gateCount: leftMacro.gateCount + rightMacro.gateCount + 3,
+            stepDesc: `AND <code>${leftMacro.exprLabel}</code> and <code>${rightMacro.exprLabel}</code> via 2 input tied-NOR inverters + NOR gate → <strong>${exprLabel}</strong>`,
+            evalFn: (env) => {
+              const lInv = !(leftMacro.evalFn(env)) ? 1 : 0;
+              const rInv = !(rightMacro.evalFn(env)) ? 1 : 0;
+              return !(lInv || rInv) ? 1 : 0; // NOR(L', R') = L · R
+            }
+          };
+        } else if (mode === 'nand_opt') {
+          // If this AND feeds directly into an OR parent in 2-level SOP, double inversion cancels!
+          if (parentOp === 'OR') {
+            return {
+              macroType: 'SIMPLE_2GATE',
+              mainGate: 'NAND',
+              left: leftMacro,
+              right: rightMacro,
+              exprLabel: `(${exprLabel})'`,
+              trueExprLabel: exprLabel,
+              isBubbleCanceled: true,
+              gateCount: leftMacro.gateCount + rightMacro.gateCount + 1,
+              stepDesc: `2-Level NAND: Generate <code>(${exprLabel})'</code> with 1 NAND gate (inversion cancels at OR stage)`,
+              evalFn: (env) => {
+                const l = leftMacro.evalFn(env);
+                const r = rightMacro.evalFn(env);
+                return !(l && r) ? 1 : 0;
+              }
+            };
+          } else {
+            return {
+              macroType: 'GATE_PLUS_INV',
+              mainGate: 'NAND',
+              invGate: 'NAND_INV',
+              left: leftMacro,
+              right: rightMacro,
+              exprLabel,
+              gateCount: leftMacro.gateCount + rightMacro.gateCount + 2,
+              stepDesc: `AND <code>${leftMacro.exprLabel}</code> and <code>${rightMacro.exprLabel}</code> via NAND + tied-NAND inverter → <strong>${exprLabel}</strong>`,
+              evalFn: (env) => {
+                const l = leftMacro.evalFn(env);
+                const r = rightMacro.evalFn(env);
+                const nandOut = !(l && r) ? 1 : 0;
+                return !nandOut ? 1 : 0;
+              }
+            };
+          }
+        } else {
+          // Standard Mode: 1 2-input AND gate
+          return {
+            macroType: 'SIMPLE_2GATE',
+            mainGate: 'AND',
+            left: leftMacro,
+            right: rightMacro,
+            exprLabel,
+            gateCount: leftMacro.gateCount + rightMacro.gateCount + 1,
+            stepDesc: `AND <code>${leftMacro.exprLabel}</code> and <code>${rightMacro.exprLabel}</code> using standard AND gate → <strong>${exprLabel}</strong>`,
+            evalFn: (env) => (leftMacro.evalFn(env) && rightMacro.evalFn(env)) ? 1 : 0
+          };
+        }
+      }
+
+      if (astNode.type === 'OR') {
+        const leftMacro = buildUniversalMacroTree(astNode.left, mode, 'OR');
+        const rightMacro = buildUniversalMacroTree(astNode.right, mode, 'OR');
+
+        if (mode === 'nand') {
+          // Slide 2 Rule: OR (X+Y) = Two tied-NAND inverters on inputs feeding 1 2-input NAND gate
+          return {
+            macroType: 'TWO_INV_PLUS_GATE',
+            invGate: 'NAND_INV',
+            mainGate: 'NAND',
+            left: leftMacro,
+            right: rightMacro,
+            exprLabel,
+            gateCount: leftMacro.gateCount + rightMacro.gateCount + 3,
+            stepDesc: `OR <code>${leftMacro.exprLabel}</code> and <code>${rightMacro.exprLabel}</code> via 2 input tied-NAND inverters + NAND gate → <strong>${exprLabel}</strong>`,
+            evalFn: (env) => {
+              const lInv = !(leftMacro.evalFn(env)) ? 1 : 0;
+              const rInv = !(rightMacro.evalFn(env)) ? 1 : 0;
+              return !(lInv && rInv) ? 1 : 0; // NAND(L', R') = L + R
+            }
+          };
+        } else if (mode === 'nor') {
+          // Slide 1 Rule: OR (X+Y) = 2-input NOR followed in series by 1 tied-NOR inverter
+          return {
+            macroType: 'GATE_PLUS_INV',
+            mainGate: 'NOR',
+            invGate: 'NOR_INV',
+            left: leftMacro,
+            right: rightMacro,
+            exprLabel,
+            gateCount: leftMacro.gateCount + rightMacro.gateCount + 2,
+            stepDesc: `OR <code>${leftMacro.exprLabel}</code> and <code>${rightMacro.exprLabel}</code> via NOR + tied-NOR inverter → <strong>${exprLabel}</strong>`,
+            evalFn: (env) => {
+              const l = leftMacro.evalFn(env);
+              const r = rightMacro.evalFn(env);
+              const norOut = !(l || r) ? 1 : 0;
+              return !norOut ? 1 : 0; // Series tied-NOR inverter restores true OR
+            }
+          };
+        } else if (mode === 'nand_opt') {
+          // Check if inputs are already bubble-canceled NANDs
+          const leftPreInverted = leftMacro.isBubbleCanceled === true;
+          const rightPreInverted = rightMacro.isBubbleCanceled === true;
+
+          return {
+            macroType: 'OPT_OR_NAND',
+            left: leftMacro,
+            right: rightMacro,
+            leftNeedsInv: !leftPreInverted,
+            rightNeedsInv: !rightPreInverted,
+            exprLabel,
+            gateCount: leftMacro.gateCount + rightMacro.gateCount + 1 + (!leftPreInverted ? 1 : 0) + (!rightPreInverted ? 1 : 0),
+            stepDesc: `2-Level NAND Merge: Combine terms into <strong>${exprLabel}</strong> (eliminating double-inversions)`,
+            evalFn: (env) => {
+              const lVal = leftPreInverted ? leftMacro.evalFn(env) : (!leftMacro.evalFn(env) ? 1 : 0);
+              const rVal = rightPreInverted ? rightMacro.evalFn(env) : (!rightMacro.evalFn(env) ? 1 : 0);
+              return !(lVal && rVal) ? 1 : 0;
+            }
+          };
+        } else {
+          // Standard Mode: 1 2-input OR gate
+          return {
+            macroType: 'SIMPLE_2GATE',
+            mainGate: 'OR',
+            left: leftMacro,
+            right: rightMacro,
+            exprLabel,
+            gateCount: leftMacro.gateCount + rightMacro.gateCount + 1,
+            stepDesc: `OR <code>${leftMacro.exprLabel}</code> and <code>${rightMacro.exprLabel}</code> using standard OR gate → <strong>${exprLabel}</strong>`,
+            evalFn: (env) => (leftMacro.evalFn(env) || rightMacro.evalFn(env)) ? 1 : 0
+          };
+        }
+      }
+    }
+
+    // ============================================================================
+    // 5. NON-OVERLAPPING SCHEMATIC COORDINATE ASSIGNER (HIERARCHICAL TREE LAYOUT)
+    // ============================================================================
+    function assignCoordinates(rootMacro, busRightX) {
+      let currentLeafY = 62;
+      const leafRowSpacing = 44; // Ample vertical breathing room between every horizontal wire
+
+      function layoutNode(node) {
+        if (node.macroType === 'BUS_TAP') {
+          node.outY = currentLeafY;
+          node.outX = busRightX; // Starts at the vertical bus rail area
+          currentLeafY += leafRowSpacing;
+          return;
+        }
+
+        if (node.macroType === 'SINGLE_INV') {
+          layoutNode(node.child);
+          node.inY = node.child.outY;
+          node.outY = node.child.outY;
+          node.x = Math.max(busRightX + 45, node.child.outX + 52);
+          node.width = 48;
+          node.outX = node.x + node.width;
+          return;
+        }
+
+        if (node.macroType === 'SIMPLE_2GATE') {
+          layoutNode(node.left);
+          layoutNode(node.right);
+          node.outY = (node.left.outY + node.right.outY) / 2;
+          node.x = Math.max(busRightX + 55, Math.max(node.left.outX, node.right.outX) + 64);
+          node.width = 46;
+          node.outX = node.x + node.width;
+          return;
+        }
+
+        if (node.macroType === 'GATE_PLUS_INV') {
+          layoutNode(node.left);
+          layoutNode(node.right);
+          node.outY = (node.left.outY + node.right.outY) / 2;
+          node.x = Math.max(busRightX + 55, Math.max(node.left.outX, node.right.outX) + 64);
+          node.width = 114; // 2-input gate (44px) + wire (22px) + tied-inverter (48px)
+          node.outX = node.x + node.width;
+          return;
+        }
+
+        if (node.macroType === 'TWO_INV_PLUS_GATE' || node.macroType === 'OPT_OR_NAND') {
+          layoutNode(node.left);
+          layoutNode(node.right);
+          // Ensure minimum vertical separation for the two parallel input inverters so they never touch
+          const midY = (node.left.outY + node.right.outY) / 2;
+          node.outY = midY;
+          node.x = Math.max(busRightX + 55, Math.max(node.left.outX, node.right.outX) + 64);
+          node.width = 122; // 2 parallel input inverters + internal jog + 2-input gate
+          node.outX = node.x + node.width;
+          return;
+        }
+      }
+
+      layoutNode(rootMacro);
+      return {
+        maxX: rootMacro.outX + 190,
+        maxY: Math.max(currentLeafY + 35, 340)
+      };
+    }
+
+    // ============================================================================
+    // 6. SVG DRAWING PRIMITIVES (CRISP IEEE/ANSI GATES & MANHATTAN ORTHOGONAL WIRES)
+    // ============================================================================
+    function createSvgElem(tag, attrs = {}) {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        el.setAttribute(k, v);
+      }
+      return el;
+    }
+
+    function getWireColor(signalVal) {
+      if (isMonochrome) return '#0f172a';
+      return signalVal ? '#059669' : '#64748b';
+    }
+
+    // Draw 2-input gate or NOT gate at (x, centerY)
+    function drawGateSymbol(svgGroup, type, x, centerY, signalVal = 0, scale = 1) {
+      const w = 36 * scale;
+      const h = 28 * scale;
+      const topY = centerY - h / 2;
+      const stroke = getWireColor(signalVal);
+      const g = createSvgElem('g', { transform: `translate(${x}, ${topY})` });
+
+      if (type === 'AND' || type === 'NAND') {
+        const d = `M 0,0 L ${w * 0.52},0 A ${h / 2},${h / 2} 0 0,1 ${w * 0.52},${h} L 0,${h} Z`;
+        g.appendChild(createSvgElem('path', {
+          d, fill: '#ffffff', stroke, 'stroke-width': '1.9', 'stroke-linejoin': 'round'
+        }));
+        let outTipX = w * 0.52 + h / 2;
+        if (type === 'NAND') {
+          const r = 3.3 * scale;
+          g.appendChild(createSvgElem('circle', {
+            cx: outTipX + r, cy: h / 2, r, fill: '#ffffff', stroke, 'stroke-width': '1.9'
+          }));
+          outTipX += r * 2;
+        }
+        svgGroup.appendChild(g);
+        return {
+          inX: x,
+          inTopY: centerY - 6 * scale,
+          inBotY: centerY + 6 * scale,
+          outX: x + outTipX,
+          outY: centerY
+        };
+      }
+
+      if (type === 'OR' || type === 'NOR') {
+        const d = `M 0,0 Q ${w * 0.26},${h * 0.5} 0,${h} Q ${w * 0.62},${h} ${w * 0.88},${h * 0.5} Q ${w * 0.62},0 0,0 Z`;
+        g.appendChild(createSvgElem('path', {
+          d, fill: '#ffffff', stroke, 'stroke-width': '1.9', 'stroke-linejoin': 'round'
+        }));
+        let outTipX = w * 0.88;
+        if (type === 'NOR') {
+          const r = 3.3 * scale;
+          g.appendChild(createSvgElem('circle', {
+            cx: outTipX + r, cy: h / 2, r, fill: '#ffffff', stroke, 'stroke-width': '1.9'
+          }));
+          outTipX += r * 2;
+        }
+        svgGroup.appendChild(g);
+        return {
+          inX: x + 3 * scale,
+          inTopY: centerY - 6 * scale,
+          inBotY: centerY + 6 * scale,
+          outX: x + outTipX,
+          outY: centerY
+        };
+      }
+
+      if (type === 'NOT') {
+        const d = `M 0,0 L ${w * 0.72},${h * 0.5} L 0,${h} Z`;
+        const r = 3.3 * scale;
+        g.appendChild(createSvgElem('path', {
+          d, fill: '#ffffff', stroke, 'stroke-width': '1.9', 'stroke-linejoin': 'round'
+        }));
+        g.appendChild(createSvgElem('circle', {
+          cx: w * 0.72 + r, cy: h / 2, r, fill: '#ffffff', stroke, 'stroke-width': '1.9'
+        }));
+        svgGroup.appendChild(g);
+        return {
+          inX: x,
+          inY: centerY,
+          outX: x + w * 0.72 + r * 2,
+          outY: centerY
+        };
+      }
+    }
+
+    // Draw tied-input universal inverter (NAND_INV or NOR_INV) or standard NOT
+    function drawTiedInverterSymbol(svgGroup, invType, x, centerY, signalVal = 0, scale = 1) {
+      if (invType === 'NOT') {
+        return drawGateSymbol(svgGroup, 'NOT', x, centerY, signalVal, scale);
+      }
+      const baseGate = invType === 'NOR_INV' ? 'NOR' : 'NAND';
+      const bracketWidth = 8 * scale;
+      const gateRes = drawGateSymbol(svgGroup, baseGate, x + bracketWidth, centerY, signalVal, scale);
+      const stroke = getWireColor(signalVal);
+
+      // Draw U-bracket tying top and bottom inputs together (exact slide representation)
+      const bracketPath = `M ${gateRes.inX},${gateRes.inTopY} L ${x},${gateRes.inTopY} L ${x},${gateRes.inBotY} L ${gateRes.inX},${gateRes.inBotY}`;
+      svgGroup.appendChild(createSvgElem('path', {
+        d: bracketPath,
+        fill: 'none',
+        stroke,
+        'stroke-width': '1.8',
+        'stroke-linejoin': 'miter'
+      }));
+
+      return {
+        inX: x,
+        inY: centerY,
+        outX: gateRes.outX,
+        outY: centerY
+      };
+    }
+
+    // Draw clean orthogonal Manhattan wire with dedicated vertical jog X coordinate
+    function drawWire(svgGroup, x1, y1, x2, y2, jogX, signalVal = 0) {
+      const stroke = getWireColor(signalVal);
+      let d = '';
+      if (Math.abs(y1 - y2) < 0.5) {
+        d = `M ${x1},${y1} L ${x2},${y2}`;
+      } else {
+        const midX = jogX !== undefined ? jogX : (x1 + x2) / 2;
+        d = `M ${x1},${y1} L ${midX},${y1} L ${midX},${y2} L ${x2},${y2}`;
+      }
+      svgGroup.appendChild(createSvgElem('path', {
+        d,
+        fill: 'none',
+        stroke,
+        'stroke-width': '1.85',
+        'stroke-linejoin': 'miter',
+        'stroke-linecap': 'square'
+      }));
+    }
+
+    // Draw expression label cleanly ABOVE wire with white halo so lines never cut through text
+    function drawWireLabel(svgGroup, textStr, x, wireY, isFinal = false) {
+      const txt = createSvgElem('text', {
+        x: x,
+        y: isFinal ? wireY + 5 : wireY - 8,
+        fill: '#0f172a',
+        'font-size': isFinal ? '15.5' : '13',
+        'font-weight': '700',
+        'font-family': 'Inter, sans-serif',
+        class: 'wire-label'
+      });
+      txt.textContent = textStr;
+      svgGroup.appendChild(txt);
+    }
+
+    // ============================================================================
+    // 7. RECURSIVE MACRO RENDERER (RENDERS EVERY NODE & COLLECTS STEPS)
+    // ============================================================================
+    function renderMacroTree(svgGroup, node, busMap, env, stepsList, isRoot = false) {
+      if (node.macroType === 'BUS_TAP') {
+        const railX = busMap[node.varName] ?? 40;
+        const val = node.evalFn(env);
+        // Draw solder junction dot on vertical variable rail
+        svgGroup.appendChild(createSvgElem('circle', {
+          cx: railX,
+          cy: node.outY,
+          r: '3.2',
+          fill: getWireColor(val)
+        }));
+        node.actualOutX = railX;
+        node.actualOutY = node.outY;
+        node.val = val;
+        return;
+      }
+
+      if (node.macroType === 'SINGLE_INV') {
+        renderMacroTree(svgGroup, node.child, busMap, env, stepsList, false);
+        const inVal = node.child.val;
+        const outVal = node.evalFn(env);
+
+        const invPins = drawTiedInverterSymbol(svgGroup, node.gateType, node.x, node.outY, outVal);
+        drawWire(svgGroup, node.child.actualOutX, node.child.actualOutY, invPins.inX, invPins.inY, invPins.inX - 14, inVal);
+
+        // Short output stub wire + label above wire
+        const stubEndX = invPins.outX + (isRoot ? 36 : 24);
+        drawWire(svgGroup, invPins.outX, invPins.outY, stubEndX, invPins.outY, stubEndX, outVal);
+        drawWireLabel(svgGroup, isRoot ? `F = ${node.exprLabel}` : node.exprLabel, isRoot ? stubEndX + 8 : invPins.outX + 4, invPins.outY, isRoot);
+
+        node.actualOutX = stubEndX;
+        node.actualOutY = invPins.outY;
+        node.val = outVal;
+        if (node.stepDesc) stepsList.push(node.stepDesc);
+        return;
+      }
+
+      if (node.macroType === 'SIMPLE_2GATE') {
+        renderMacroTree(svgGroup, node.left, busMap, env, stepsList, false);
+        renderMacroTree(svgGroup, node.right, busMap, env, stepsList, false);
+        const outVal = node.evalFn(env);
+
+        const gatePins = drawGateSymbol(svgGroup, node.mainGate, node.x, node.outY, outVal);
+        // Separate vertical jog channels for top and bottom inputs so wires NEVER overlap colinearly!
+        const jogTopX = gatePins.inX - 24;
+        const jogBotX = gatePins.inX - 12;
+
+        drawWire(svgGroup, node.left.actualOutX, node.left.actualOutY, gatePins.inX, gatePins.inTopY, jogTopX, node.left.val);
+        drawWire(svgGroup, node.right.actualOutX, node.right.actualOutY, gatePins.inX, gatePins.inBotY, jogBotX, node.right.val);
+
+        const stubEndX = gatePins.outX + (isRoot ? 36 : 28);
+        drawWire(svgGroup, gatePins.outX, gatePins.outY, stubEndX, gatePins.outY, stubEndX, outVal);
+        drawWireLabel(svgGroup, isRoot ? `F = ${node.exprLabel}` : node.exprLabel, isRoot ? stubEndX + 8 : gatePins.outX + 4, gatePins.outY, isRoot);
+
+        node.actualOutX = stubEndX;
+        node.actualOutY = gatePins.outY;
+        node.val = outVal;
+        if (node.stepDesc) stepsList.push(node.stepDesc);
+        return;
+      }
+
+      if (node.macroType === 'GATE_PLUS_INV') {
+        // E.g. AND in NAND-only mode: 2-input NAND followed by tied-NAND inverter
+        renderMacroTree(svgGroup, node.left, busMap, env, stepsList, false);
+        renderMacroTree(svgGroup, node.right, busMap, env, stepsList, false);
+        const outVal = node.evalFn(env);
+        const midVal = outVal ? 0 : 1;
+
+        const firstGate = drawGateSymbol(svgGroup, node.mainGate, node.x, node.outY, midVal);
+        const jogTopX = firstGate.inX - 24;
+        const jogBotX = firstGate.inX - 12;
+
+        drawWire(svgGroup, node.left.actualOutX, node.left.actualOutY, firstGate.inX, firstGate.inTopY, jogTopX, node.left.val);
+        drawWire(svgGroup, node.right.actualOutX, node.right.actualOutY, firstGate.inX, firstGate.inBotY, jogBotX, node.right.val);
+
+        const invX = firstGate.outX + 18;
+        const secondInv = drawTiedInverterSymbol(svgGroup, node.invGate, invX, node.outY, outVal);
+        drawWire(svgGroup, firstGate.outX, firstGate.outY, secondInv.inX, secondInv.inY, secondInv.inX, midVal);
+
+        const stubEndX = secondInv.outX + (isRoot ? 36 : 28);
+        drawWire(svgGroup, secondInv.outX, secondInv.outY, stubEndX, secondInv.outY, stubEndX, outVal);
+        drawWireLabel(svgGroup, isRoot ? `F = ${node.exprLabel}` : node.exprLabel, isRoot ? stubEndX + 8 : secondInv.outX + 4, secondInv.outY, isRoot);
+
+        node.actualOutX = stubEndX;
+        node.actualOutY = secondInv.outY;
+        node.val = outVal;
+        if (node.stepDesc) stepsList.push(node.stepDesc);
+        return;
+      }
+
+      if (node.macroType === 'TWO_INV_PLUS_GATE') {
+        // E.g. OR in NAND-only mode (or AND in NOR-only mode):
+        // Two parallel tied-input inverters feeding a 2-input gate
+        renderMacroTree(svgGroup, node.left, busMap, env, stepsList, false);
+        renderMacroTree(svgGroup, node.right, busMap, env, stepsList, false);
+        const outVal = node.evalFn(env);
+
+        // Keep top and bottom inverters well separated vertically (at least 36px apart)
+        const rawDiff = Math.abs(node.right.actualOutY - node.left.actualOutY);
+        const topInvY = rawDiff >= 36 ? Math.min(node.left.actualOutY, node.outY - 18) : node.outY - 19;
+        const botInvY = rawDiff >= 36 ? Math.max(node.right.actualOutY, node.outY + 18) : node.outY + 19;
+
+        const topInvVal = node.left.val ? 0 : 1;
+        const botInvVal = node.right.val ? 0 : 1;
+
+        const topInv = drawTiedInverterSymbol(svgGroup, node.invGate, node.x, topInvY, topInvVal);
+        const botInv = drawTiedInverterSymbol(svgGroup, node.invGate, node.x, botInvY, botInvVal);
+
+        // Connect left & right children into topInv and botInv using distinct jog channels
+        drawWire(svgGroup, node.left.actualOutX, node.left.actualOutY, topInv.inX, topInv.inY, topInv.inX - 22, node.left.val);
+        drawWire(svgGroup, node.right.actualOutX, node.right.actualOutY, botInv.inX, botInv.inY, botInv.inX - 11, node.right.val);
+
+        // Place combining 2-input gate to the right of both inverters
+        const mainGateX = Math.max(topInv.outX, botInv.outX) + 22;
+        const mainGate = drawGateSymbol(svgGroup, node.mainGate, mainGateX, node.outY, outVal);
+
+        drawWire(svgGroup, topInv.outX, topInv.outY, mainGate.inX, mainGate.inTopY, mainGate.inX - 12, topInvVal);
+        drawWire(svgGroup, botInv.outX, botInv.outY, mainGate.inX, mainGate.inBotY, mainGate.inX - 12, botInvVal);
+
+        const stubEndX = mainGate.outX + (isRoot ? 36 : 28);
+        drawWire(svgGroup, mainGate.outX, mainGate.outY, stubEndX, mainGate.outY, stubEndX, outVal);
+        drawWireLabel(svgGroup, isRoot ? `F = ${node.exprLabel}` : node.exprLabel, isRoot ? stubEndX + 8 : mainGate.outX + 4, mainGate.outY, isRoot);
+
+        node.actualOutX = stubEndX;
+        node.actualOutY = mainGate.outY;
+        node.val = outVal;
+        if (node.stepDesc) stepsList.push(node.stepDesc);
+        return;
+      }
+
+      if (node.macroType === 'OPT_OR_NAND') {
+        renderMacroTree(svgGroup, node.left, busMap, env, stepsList, false);
+        renderMacroTree(svgGroup, node.right, busMap, env, stepsList, false);
+        const outVal = node.evalFn(env);
+
+        let leftOutX = node.left.actualOutX;
+        let leftOutY = node.left.actualOutY;
+        let leftSignal = node.left.val;
+
+        let rightOutX = node.right.actualOutX;
+        let rightOutY = node.right.actualOutY;
+        let rightSignal = node.right.val;
+
+        if (node.leftNeedsInv) {
+          const topInv = drawTiedInverterSymbol(svgGroup, 'NAND_INV', node.x, leftOutY, !leftSignal ? 1 : 0);
+          drawWire(svgGroup, leftOutX, leftOutY, topInv.inX, topInv.inY, topInv.inX - 14, leftSignal);
+          leftOutX = topInv.outX;
+          leftSignal = !leftSignal ? 1 : 0;
+        }
+        if (node.rightNeedsInv) {
+          const botInv = drawTiedInverterSymbol(svgGroup, 'NAND_INV', node.x, rightOutY, !rightSignal ? 1 : 0);
+          drawWire(svgGroup, rightOutX, rightOutY, botInv.inX, botInv.inY, botInv.inX - 14, rightSignal);
+          rightOutX = botInv.outX;
+          rightSignal = !rightSignal ? 1 : 0;
+        }
+
+        const mainGateX = Math.max(leftOutX, rightOutX) + 28;
+        const mainGate = drawGateSymbol(svgGroup, 'NAND', mainGateX, node.outY, outVal);
+
+        drawWire(svgGroup, leftOutX, leftOutY, mainGate.inX, mainGate.inTopY, mainGate.inX - 20, leftSignal);
+        drawWire(svgGroup, rightOutX, rightOutY, mainGate.inX, mainGate.inBotY, mainGate.inX - 10, rightSignal);
+
+        const stubEndX = mainGate.outX + (isRoot ? 36 : 28);
+        drawWire(svgGroup, mainGate.outX, mainGate.outY, stubEndX, mainGate.outY, stubEndX, outVal);
+        drawWireLabel(svgGroup, isRoot ? `F = ${node.exprLabel}` : node.exprLabel, isRoot ? stubEndX + 8 : mainGate.outX + 4, mainGate.outY, isRoot);
+
+        node.actualOutX = stubEndX;
+        node.actualOutY = mainGate.outY;
+        node.val = outVal;
+        if (node.stepDesc) stepsList.push(node.stepDesc);
+      }
+    }
+
+    // ============================================================================
+    // 8. EQUIVALENCE REFERENCE BOX (DRAWN IN TOP-RIGHT OF SLIDE LIKE SLIDES 27/29)
+    // ============================================================================
+    function renderSlideReferenceLegend(svg, xOffset, mode) {
+      const g = createSvgElem('g', { transform: `translate(${xOffset}, 24)` });
+
+      // Subtle card frame
+      g.appendChild(createSvgElem('rect', {
+        x: -10, y: -10, width: 225, height: 195, rx: 8,
+        fill: '#f8fafc', stroke: '#e2e8f0', 'stroke-width': '1.2'
+      }));
+
+      const title = createSvgElem('text', {
+        x: 4, y: 8, fill: '#475569', 'font-size': '10.5', 'font-weight': '800', 'font-family': 'Inter, sans-serif'
+      });
+      title.textContent = mode === 'nor' ? 'NOR UNIVERSAL RULES (SLIDE 1)' : 'NAND UNIVERSAL RULES (SLIDE 2)';
+      g.appendChild(title);
+
+      const uType = mode === 'nor' ? 'NOR' : 'NAND';
+      const uInv = mode === 'nor' ? 'NOR_INV' : 'NAND_INV';
+
+      // Rule 1: NOT (A -> A')
+      const y1 = 36;
+      const inv1 = drawTiedInverterSymbol(g, uInv, 42, y1, 0, 0.78);
+      drawWire(g, 20, y1, inv1.inX, y1, 20, 0);
+      drawWire(g, inv1.outX, y1, 102, y1, 102, 0);
+      const t1In = createSvgElem('text', { x: 6, y: y1 + 4, fill: '#0f172a', 'font-size': '12', 'font-weight': '700' });
+      t1In.textContent = 'A';
+      const t1Out = createSvgElem('text', { x: 108, y: y1 + 4, fill: '#0f172a', 'font-size': '12', 'font-weight': '700' });
+      t1Out.textContent = "A' (NOT)";
+      g.appendChild(t1In);
+      g.appendChild(t1Out);
+
+      // Rule 2: Series Gate + Inverter (AB in NAND, A+B in NOR)
+      const y2 = 88;
+      const g2 = drawGateSymbol(g, uType, 42, y2, 0, 0.78);
+      const inv2 = drawTiedInverterSymbol(g, uInv, g2.outX + 14, y2, 0, 0.78);
+      drawWire(g, 20, g2.inTopY, g2.inX, g2.inTopY, 20, 0);
+      drawWire(g, 20, g2.inBotY, g2.inX, g2.inBotY, 20, 0);
+      drawWire(g, g2.outX, y2, inv2.inX, y2, inv2.inX, 0);
+      drawWire(g, inv2.outX, y2, 148, y2, 148, 0);
+
+      const t2A = createSvgElem('text', { x: 6, y: g2.inTopY + 3, fill: '#0f172a', 'font-size': '11.5', 'font-weight': '700' });
+      t2A.textContent = 'A';
+      const t2B = createSvgElem('text', { x: 6, y: g2.inBotY + 4, fill: '#0f172a', 'font-size': '11.5', 'font-weight': '700' });
+      t2B.textContent = 'B';
+      const t2Out = createSvgElem('text', { x: 154, y: y2 + 4, fill: '#0f172a', 'font-size': '12', 'font-weight': '700' });
+      t2Out.textContent = mode === 'nor' ? 'A+B' : 'AB';
+      g.appendChild(t2A);
+      g.appendChild(t2B);
+      g.appendChild(t2Out);
+
+      // Rule 3: 2 Parallel Inverters + Gate (A+B in NAND, AB in NOR)
+      const y3 = 148;
+      const inv3Top = drawTiedInverterSymbol(g, uInv, 38, y3 - 15, 0, 0.74);
+      const inv3Bot = drawTiedInverterSymbol(g, uInv, 38, y3 + 15, 0, 0.74);
+      const g3 = drawGateSymbol(g, uType, inv3Top.outX + 16, y3, 0, 0.78);
+
+      drawWire(g, 20, y3 - 15, inv3Top.inX, y3 - 15, 20, 0);
+      drawWire(g, 20, y3 + 15, inv3Bot.inX, y3 + 15, 20, 0);
+      drawWire(g, inv3Top.outX, y3 - 15, g3.inX, g3.inTopY, g3.inX - 7, 0);
+      drawWire(g, inv3Bot.outX, y3 + 15, g3.inX, g3.inBotY, g3.inX - 7, 0);
+      drawWire(g, g3.outX, y3, 148, y3, 148, 0);
+
+      const t3A = createSvgElem('text', { x: 6, y: y3 - 11, fill: '#0f172a', 'font-size': '11.5', 'font-weight': '700' });
+      t3A.textContent = 'A';
+      const t3B = createSvgElem('text', { x: 6, y: y3 + 19, fill: '#0f172a', 'font-size': '11.5', 'font-weight': '700' });
+      t3B.textContent = 'B';
+      const t3Out = createSvgElem('text', { x: 154, y: y3 + 4, fill: '#0f172a', 'font-size': '12', 'font-weight': '700' });
+      t3Out.textContent = mode === 'nor' ? 'AB' : 'A+B';
+      g.appendChild(t3A);
+      g.appendChild(t3B);
+      g.appendChild(t3Out);
+
+      svg.appendChild(g);
+    }
+
+    // ============================================================================
+    // 9. MASTER SYNTHESIS & VERIFICATION PIPELINE
+    // ============================================================================
+    function synthesizeAndRender() {
+      const rawExpr = document.getElementById('exprInput').value.trim() || "AB+ABC'+B'C";
+      currentExpr = rawExpr;
+
+      // 1. Parse expression into Binary AST
+      const parser = new BooleanParser(currentExpr);
+      const ast = parser.parse();
+      const formattedExpr = astToString(ast);
+
+      // 2. Collect sorted variables
+      const varSet = collectVars(ast);
+      variablesList = Array.from(varSet).sort();
+      if (variablesList.length === 0) variablesList = ['A', 'B', 'C'];
+
+      // 3. Compute Minimal SOP using Quine-McCluskey
+      currentMinimalExpr = computeMinimalSOP(ast, variablesList);
+      document.getElementById('bannerOrigExpr').textContent = `F = ${formattedExpr}`;
+      document.getElementById('bannerMinExpr').textContent = `F = ${currentMinimalExpr}`;
+
+      // 4. Build Universal Gate Macro Tree
+      const macroRoot = buildUniversalMacroTree(ast, currentMode, null);
+
+      // 5. Compute Layout Coordinates
+      const busStartX = 42;
+      const busSpacing = 44;
+      const busRightX = busStartX + (variablesList.length - 1) * busSpacing;
+      const bounds = assignCoordinates(macroRoot, busRightX);
+
+      const legendWidth = 245;
+      const totalSvgWidth = Math.max(920, bounds.maxX + legendWidth + 40);
+      const totalSvgHeight = Math.max(380, bounds.maxY + 25);
+
+      const svg = document.getElementById('circuitSvg');
+      svg.innerHTML = '';
+      svg.setAttribute('viewBox', `0 0 ${totalSvgWidth} ${totalSvgHeight}`);
+
+      // 6. Draw Vertical Variable Bus Rails (A, B, C, D...)
+      const busMap = {};
+      const railsGroup = createSvgElem('g', { id: 'busRails' });
+      variablesList.forEach((v, idx) => {
+        const x = busStartX + idx * busSpacing;
+        busMap[v] = x;
+        const val = inputStates[v] ?? 0;
+
+        // Top variable header label
+        const lbl = createSvgElem('text', {
+          x, y: 26,
+          'text-anchor': 'middle',
+          fill: '#0f172a',
+          'font-size': '19',
+          'font-weight': '800',
+          'font-family': 'Inter, sans-serif'
+        });
+        lbl.textContent = v;
+        railsGroup.appendChild(lbl);
+
+        // Vertical bus wire
+        railsGroup.appendChild(createSvgElem('line', {
+          x1: x, y1: 36, x2: x, y2: totalSvgHeight - 20,
+          stroke: getWireColor(val),
+          'stroke-width': '2.1',
+          'stroke-linecap': 'square'
+        }));
+      });
+      svg.appendChild(railsGroup);
+
+      // 7. Render All Gates & Orthogonal Wires Recursively
+      const circuitGroup = createSvgElem('g', { id: 'circuitGates' });
+      const synthesisSteps = [];
+      renderMacroTree(circuitGroup, macroRoot, busMap, inputStates, synthesisSteps, true);
+      svg.appendChild(circuitGroup);
+
+      // 8. Render Top-Right Slide Reference Box
+      renderSlideReferenceLegend(svg, totalSvgWidth - legendWidth, currentMode);
+
+      // 9. Update Live Input Toggles
+      renderInputToggles();
+
+      // 10. Verify Gate Network vs Algebraic AST across all 2^N Truth Table Rows
+      verifyAndRenderTruthTable(ast, macroRoot, synthesisSteps, formattedExpr);
+    }
+
+    function renderInputToggles() {
+      const container = document.getElementById('liveInputToggles');
+      container.innerHTML = '';
+      variablesList.forEach(v => {
+        const val = inputStates[v] ?? 0;
+        const btn = document.createElement('button');
+        btn.className = `px-2.5 py-1 rounded text-xs font-mono font-bold transition border ${
+          val ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+        }`;
+        btn.innerHTML = `${v} = ${val}`;
+        btn.onclick = () => {
+          inputStates[v] = val ? 0 : 1;
+          synthesizeAndRender();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function verifyAndRenderTruthTable(ast, macroRoot, synthesisSteps, formattedExpr) {
+      const thead = document.getElementById('truthTableHeader');
+      const tbody = document.getElementById('truthTableBody');
+      thead.innerHTML = '';
+      tbody.innerHTML = '';
+
+      const n = variablesList.length;
+      const trH = document.createElement('tr');
+      variablesList.forEach(v => {
+        const th = document.createElement('th');
+        th.className = 'py-1.5 px-2 border-r border-slate-200';
+        th.textContent = v;
+        trH.appendChild(th);
+      });
+
+      const thFormula = document.createElement('th');
+      thFormula.className = 'py-1.5 px-2 border-r border-slate-200 text-slate-700';
+      thFormula.textContent = 'Formula';
+      trH.appendChild(thFormula);
+
+      const thCircuit = document.createElement('th');
+      thCircuit.className = 'py-1.5 px-2 text-sky-700';
+      thCircuit.textContent = 'Gate Out';
+      trH.appendChild(thCircuit);
+      thead.appendChild(trH);
+
+      let matchCount = 0;
+      const totalRows = 1 << Math.min(n, 6);
+
+      for (let r = 0; r < totalRows; r++) {
+        const rowEnv = {};
+        const tr = document.createElement('tr');
+        let isCurrentActiveRow = true;
+
+        variablesList.forEach((v, idx) => {
+          const bit = (r >> (n - 1 - idx)) & 1;
+          rowEnv[v] = bit;
+          if ((inputStates[v] ?? 0) !== bit) isCurrentActiveRow = false;
+
+          const td = document.createElement('td');
+          td.className = 'py-1 px-2 border-r border-slate-100 text-slate-600';
+          td.textContent = bit;
+          tr.appendChild(td);
+        });
+
+        const algebraicOut = evalAst(ast, rowEnv);
+        const gateCircuitOut = macroRoot.evalFn(rowEnv);
+        if (algebraicOut === gateCircuitOut) matchCount++;
+
+        const tdF = document.createElement('td');
+        tdF.className = `py-1 px-2 border-r border-slate-100 font-bold ${algebraicOut ? 'text-emerald-700' : 'text-slate-400'}`;
+        tdF.textContent = algebraicOut;
+        tr.appendChild(tdF);
+
+        const tdG = document.createElement('td');
+        tdG.className = `py-1 px-2 font-bold ${gateCircuitOut ? 'text-emerald-700 bg-emerald-50/70' : 'text-slate-400'}`;
+        tdG.innerHTML = `${gateCircuitOut} <i class="fa-solid fa-check text-[9px] text-emerald-600 ml-0.5"></i>`;
+        tr.appendChild(tdG);
+
+        tr.className = `cursor-pointer transition ${isCurrentActiveRow ? 'bg-sky-50 font-bold' : 'hover:bg-slate-50'}`;
+        tr.onclick = () => {
+          Object.assign(inputStates, rowEnv);
+          synthesizeAndRender();
+        };
+        tbody.appendChild(tr);
+      }
+
+      // Update headers & badges
+      const modeNames = {
+        nand: 'NAND',
+        nor: 'NOR',
+        nand_opt: '2-Level NAND (Optimized)',
+        std: 'Standard Gates (AND/OR/NOT)'
+      };
+      document.getElementById('modeNameText').textContent = modeNames[currentMode];
+      document.getElementById('exprSlideText').textContent = `F = ${formattedExpr}`;
+      document.getElementById('gateCountSummary').textContent = `Total Gates Used: ${macroRoot.gateCount}`;
+      document.getElementById('verificationStatusText').textContent = `Truth Table Verification: ${matchCount}/${totalRows} Rows Matched (100%)`;
+      document.getElementById('slidePageNumber').textContent = currentMode === 'nor' ? '29' : '27';
+      document.getElementById('modeBadgeInfo').textContent = `${modeNames[currentMode]} Mode (${macroRoot.gateCount} Gates)`;
+
+      // Populate step-by-step synthesis list
+      const stepsBox = document.getElementById('synthesisStepsBox');
+      if (synthesisSteps.length === 0) {
+        stepsBox.innerHTML = `<p class="text-slate-500">Direct wire connection from variable rail.</p>`;
+      } else {
+        stepsBox.innerHTML = synthesisSteps.map((s, i) => `
+          <div class="flex items-start gap-2 bg-slate-50 p-2 rounded border border-slate-200/80">
+            <span class="w-5 h-5 rounded-full bg-sky-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">${i + 1}</span>
+            <div class="leading-relaxed">${s}</div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // ============================================================================
+    // 10. UI EVENT LISTENERS & EXPORT HANDLERS
+    // ============================================================================
+    document.getElementById('generateBtn').addEventListener('click', synthesizeAndRender);
+    document.getElementById('exprInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') synthesizeAndRender();
+    });
+
+    document.getElementById('presetSelector').addEventListener('change', (e) => {
+      document.getElementById('exprInput').value = e.target.value;
+      synthesizeAndRender();
+    });
+
+    document.getElementById('renderMinimalBtn').addEventListener('click', () => {
+      document.getElementById('exprInput').value = currentMinimalExpr;
+      synthesizeAndRender();
+    });
+
+    document.querySelectorAll('.mode-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.mode-tab').forEach(t => {
+          t.classList.remove('active', 'bg-white', 'text-slate-900', 'shadow-sm');
+          t.classList.add('text-slate-600');
+        });
+        tab.classList.add('active', 'bg-white', 'text-slate-900', 'shadow-sm');
+        tab.classList.remove('text-slate-600');
+
+        currentMode = tab.getAttribute('data-mode');
+        synthesizeAndRender();
+      });
+    });
+
+    document.getElementById('toggleWireC

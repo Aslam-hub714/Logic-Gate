@@ -1,0 +1,6 @@
+{
+  "name": "Boolean Logic Gate Synthesizer",
+  "description": "Interactive universal logic gate synthesis (NAND & NOR only), Quine-McCluskey minimizer, truth table verification, and academic schematic slide engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
